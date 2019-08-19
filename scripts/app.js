@@ -39,8 +39,9 @@
             app.selectedTimetables = [];
         }
         app.getSchedule(key, label);
-        app.selectedTimetables.push({key: key, label: label});
-        app.toggleAddDialog(false);
+		app.selectedTimetables[key] = {key: key, label: label};
+		app.toggleAddDialog(false);
+        saveTimetables(app.selectedTimetables);
     });
 
     document.getElementById('butAddCancel').addEventListener('click', function () {
@@ -103,6 +104,32 @@
         }
     };
 
+	/**
+	 * Get's the cached schedule data from the caches object.
+	 *
+	 * @param {string} coords Location object to.
+	 * @return {Object} The Schedules, if the request fails, return null.
+	*/
+	function getSchedulesFromCache(coords) {
+		// CODELAB: Add code to get weather forecast from the caches object.
+		if (!('caches' in window)) {
+			return null;
+		}
+		const url = `${window.location.origin}/schedules/${coords}`;
+		return caches.match(url)
+			.then((response) => 
+			{
+				if (response) {
+					return response.json();
+				}
+				return null;
+			})
+			.catch((err) => {
+				console.error('Error getting data from cache', err);
+				return null;
+			});
+	}
+	
     /*****************************************************************************
      *
      * Methods for dealing with the model
@@ -127,8 +154,9 @@
                 }
             } else {
                 // Return the initial weather forecast since no data is available.
-                app.updateTimetableCard(initialStationTimetable);
-            }
+                //app.updateTimetableCard(initialStationTimetable);
+				app.updateTimetableCard(getSchedulesFromCache(key))
+			}
         };
         request.open('GET', url);
         request.send();
@@ -141,7 +169,41 @@
             app.getSchedule(key);
         });
     };
-
+	
+	function saveTimetables(timetables){
+		const data = JSON.stringify(timetables);
+		localStorage.setItem('timetables', data);
+	}
+	
+	function loadTimetablesList() {
+		let timetables = localStorage.getItem('timetables');
+		if (timetables) {
+			try {
+				timetables = JSON.parse(timetables);
+			} catch (ex) {
+				timetables = {};
+			}
+		}
+		if (!timetables || Object.keys(timetables).length === 0) 
+		{
+			const key = 'metros/1/bastille/A';
+			timetables = {};
+			timetables[key] = {key: 'metros/1/bastille/A', label: 'Bastille, Direction La Défense', created: '2017-07-18T17:08:42+02:00', schedules: [
+            {
+                message: '0 mn'
+            },
+            {
+                message: '2 mn'
+            },
+            {
+                message: '5 mn'
+            }
+        ]};
+		}
+		return timetables;
+	}
+	
+	
     /*
      * Fake timetable data that is presented when the user first uses the app,
      * or when the user has not saved any stations. See startup code for more
@@ -181,7 +243,5 @@
      ************************************************************************/
 
     app.getSchedule('metros/1/bastille/A', 'Bastille, Direction La Défense');
-    app.selectedTimetables = [
-        {key: initialStationTimetable.key, label: initialStationTimetable.label}
-    ];
+    app.selectedTimetables = loadTimetablesList();
 })();
